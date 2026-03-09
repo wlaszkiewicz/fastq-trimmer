@@ -1,6 +1,6 @@
 import os
 from PyQt5.QtCore import QThread, pyqtSignal
-from trimmer_logic import merge_fastq_gz, process_file
+from trimmer_logic_fast import merge_fastq_gz, process_file
 
 
 class TrimWorker(QThread):
