@@ -1,39 +1,42 @@
 import re
 import matplotlib
+
+from utils import has_size_annotations
 matplotlib.use("Agg") 
 import matplotlib.pyplot as plt
 
 
-def parse_length_distribution(log_path):
-    """Extract the Read length distribution table from a vsearch stats log."""
-    lengths = []
-    counts  = []
-
-    in_table = False
-    with open(log_path, "r") as f:
+def parse_length_distribution(fasta_path):
+    from collections import defaultdict
+    
+    if not has_size_annotations(fasta_path):
+        raise ValueError("NO_SIZE_ANNOTATIONS")
+    
+    length_counts = defaultdict(int)
+    
+    # compile regexes once, not per line
+    size_re   = re.compile(r";size=(\d+)")
+    length_re = re.compile(r";length=(\d+)")
+    
+    with open(fasta_path, "r", buffering=1 << 20) as f:  # 1MB read buffer
         for line in f:
-            if "Read length distribution" in line:
-                in_table = True
+            if line[0] != ">":  # faster than startswith
                 continue
-            if in_table:
-                if line.strip().startswith("L") or line.strip().startswith("-") or line.strip() == "":
-                    continue
-                if not re.match(r"^\s*(>=\s*\d+|\d+)", line):
-                    break
-                match = re.match(r"^\s*(?:>=\s*)?(\d+)\s+(\d+)", line)
-                if match:
-                    lengths.append(int(match.group(1)))
-                    counts.append(int(match.group(2)))
-
-    if not lengths:
-        raise ValueError("Could not find Read length distribution table in log file.")
-
-    paired = sorted(zip(lengths, counts), key=lambda x: x[0])
+            sm = size_re.search(line)
+            if not sm:
+                continue
+            lm = length_re.search(line)
+            if not lm:
+                continue
+            length_counts[int(lm.group(1))] += int(sm.group(1))
+    
+    if not length_counts:
+        raise ValueError("Could not find read length distribution.")
+    
+    paired  = sorted(length_counts.items())
     lengths = [p[0] for p in paired]
     counts  = [p[1] for p in paired]
-
     return lengths, counts
-
 
 def trim_outliers(lengths, counts, threshold_pct=0.1):
     """

@@ -1,7 +1,6 @@
 import os
 from PyQt5.QtCore import QThread, pyqtSignal
-from trimmer_logic_fast import merge_fastq_gz, process_file
-
+from trimmer.trimmer_logic_fast import merge_fastq_gz, process_file
 
 class TrimWorker(QThread):
     progress = pyqtSignal(int)       # 0-100
@@ -9,11 +8,13 @@ class TrimWorker(QThread):
     finished = pyqtSignal(int, int)  # complete, incomplete
     error    = pyqtSignal(str)
 
-    def __init__(self, barcode_dir, output_dir, do_merge):
+    def __init__(self, barcode_dir, output_dir, do_merge, ref1, ref2):
         super().__init__()
         self.barcode_dir = barcode_dir
         self.output_dir  = output_dir
         self.do_merge    = do_merge
+        self.ref1        = ref1
+        self.ref2        = ref2
 
     def run(self):
         try:
@@ -33,9 +34,9 @@ class TrimWorker(QThread):
             self.status.emit("Trimming...")
             complete, incomplete = process_file(
                 merged_path, output_path, incomplete_path,
+                self.ref1, self.ref2,
                 progress_callback=self.progress.emit
             )
-
             self.finished.emit(complete, incomplete)
 
         except Exception as e:
